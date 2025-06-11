@@ -1,0 +1,14 @@
+flask
+moviepy
+textblob
+wordcloud
+matplotlib
+sentence-transformers
+faiss-cpu
+openai
+numpy
+PyPDF2
+python-docx
+pandas
+openpyxl
+xlrd

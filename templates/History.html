@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis History</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
+            min-height: 100vh;
+        }
+        .fixed-logo {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1000;
+            height: 75px;
+            width: auto;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        .controls {
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .back-btn, .clear-btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .back-btn {
+            background: #6c757d;
+            color: white;
+        }
+        .back-btn:hover {
+            background: #5a6268;
+            text-decoration: none;
+            color: white;
+        }
+        .clear-btn {
+            background: #dc3545;
+            color: white;
+        }
+        .clear-btn:hover {
+            background: #c82333;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 4px solid #667eea;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 30px;
+        }
+        .analysis-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            border-left: 5px solid #667eea;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .analysis-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .card-header {
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .card-meta {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        .card-section {
+            margin-bottom: 15px;
+        }
+        .card-section h4 {
+            margin: 0 0 8px 0;
+            color: #495057;
+            font-size: 1em;
+        }
+        .card-section p {
+            margin: 0;
+            line-height: 1.5;
+            color: #666;
+        }
+        .transcript-preview {
+            max-height: 100px;
+            overflow: hidden;
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            border: 1px solid #dee2e6;
+            position: relative;
+        }
+        .transcript-preview::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background: linear-gradient(transparent, white);
+        }
+        .sentiment-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .sentiment-positive {
+            background: #d4edda;
+            color: #155724;
+        }
+        .sentiment-negative {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .sentiment-neutral {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        .sentiment-stats {
+            display: flex;
+            gap: 15px;
+            margin-top: 8px;
+        }
+        .sentiment-stat {
+            font-size: 0.9em;
+        }
+        .keywords-list {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+            max-height: 80px;
+            overflow-y: auto;
+            font-size: 0.9em;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+        .empty-state h3 {
+            margin-bottom: 10px;
+        }
+        .search-box {
+            width: 100%;
+            max-width: 400px;
+            padding: 12px 20px;
+            border: 2px solid #ddd;
+            border-radius: 25px;
+            font-size: 16px;
+            margin: 0 auto 30px auto;
+            display: block;
+        }
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .filter-buttons {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .filter-btn {
+            background: #e9ecef;
+            color: #495057;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            margin: 3px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .filter-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        .filter-btn:hover {
+            background: #dee2e6;
+        }
+        .filter-btn.active:hover {
+            background: #5a6fd8;
+        }
+    </style>
+</head>
+<body>
+    <!-- Fixed Logo in upper left corner -->
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="Logo" class="fixed-logo">
+
+    <div class="container">
+        <h1>📊 Analysis History</h1>
+
+        
+        <div class="controls">
+            <a href="/" class="back-btn">🏠 Home</a>
+            <button onclick="clearAllData()" class="clear-btn">🗑️ Clear All Data</button>
+        </div>
+
+        {% if analysis_data %}
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-number">{{ analysis_data|length }}</div>
+                <div class="stat-label">Total Videos Analyzed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ analysis_data|selectattr('sentiment_label', 'eq', 'Positive')|list|length }}</div>
+                <div class="stat-label">Positive Sentiment</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ analysis_data|selectattr('sentiment_label', 'eq', 'Negative')|list|length }}</div>
+                <div class="stat-label">Negative Sentiment</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number">{{ analysis_data|selectattr('sentiment_label', 'eq', 'Neutral')|list|length }}</div>
+                <div class="stat-label">Neutral Sentiment</div>
+            </div>
+        </div>
+
+        <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search through your analyzed videos...">
+        
+        <div class="filter-buttons">
+            <button class="filter-btn active" onclick="filterBySentiment('all')">All</button>
+            <button class="filter-btn" onclick="filterBySentiment('positive')">Positive</button>
+            <button class="filter-btn" onclick="filterBySentiment('negative')">Negative</button>
+            <button class="filter-btn" onclick="filterBySentiment('neutral')">Neutral</button>
+        </div>
+
+        <div class="analysis-grid" id="analysisGrid">
+            {% for item in analysis_data %}
+            <div class="analysis-card" data-sentiment="{{ item.sentiment_label.lower() }}">
+                <div class="card-header">
+                    <div class="card-title">📹 {{ item.filename }}</div>
+                    <div class="card-meta">
+                        Analyzed on {{ item.created_at }} | ID: {{ item.id }}
+                    </div>
+                </div>
+
+                <div class="card-section">
+                    <h4>📝 Transcript Preview</h4>
+                    <div class="transcript-preview">{{ item.transcript[:300] }}...</div>
+                </div>
+
+                <div class="card-section">
+                    <h4>📌 Summary</h4>
+                    <p>{{ item.summary[:200] }}...</p>
+                </div>
+
+                <div class="card-section">
+                    <h4>💬 Sentiment Analysis</h4>
+                    <span class="sentiment-badge sentiment-{{ item.sentiment_label.lower() }}">
+                        {{ item.sentiment_label }}
+                    </span>
+                    <div class="sentiment-stats">
+                        <span class="sentiment-stat">
+                            <strong>Polarity:</strong> {{ "%.2f"|format(item.sentiment_polarity) }}
+                        </span>
+                        <span class="sentiment-stat">
+                            <strong>Subjectivity:</strong> {{ "%.2f"|format(item.sentiment_subjectivity) }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="card-section">
+                    <h4>🎭 Emotion Analysis</h4>
+                    <p>{{ item.emotion_analysis[:150] }}{% if item.emotion_analysis|length > 150 %}...{% endif %}</p>
+                </div>
+
+                <div class="card-section">
+                    <h4>🏷️ Keywords</h4>
+                    <div class="keywords-list">{{ item.keywords }}</div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <h3>📭 No Analysis Data Found</h3>
+            <p>Upload and analyze some videos to see them here!</p>
+            <a href="/" class="back-btn" style="margin-top: 20px;">🎬 Analyze Your First Video</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        async function clearAllData() {
+            if (!confirm('Are you sure you want to clear all stored video analysis data? This action cannot be undone.')) return;
+
+            try {
+                const response = await fetch('/clear-data', { method: 'POST' });
+                const data = await response.json();
+                alert(data.message);
+                location.reload();
+            } catch (err) {
+                alert('Error clearing data: ' + err.message);
+            }
+        }
+
+        function filterBySentiment(sentiment) {
+            const cards = document.querySelectorAll('.analysis-card');
+            const buttons = document.querySelectorAll('.filter-btn');
+            
+            // Update active button
+            buttons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Filter cards
+            cards.forEach(card => {
+                if (sentiment === 'all' || card.dataset.sentiment === sentiment) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        // Search functionality
+        document.getElementById('searchBox').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const cards = document.querySelectorAll('.analysis-card');
+            
+            cards.forEach(card => {
+                const content = card.textContent.toLowerCase();
+                if (content.includes(searchTerm)) {
+                    card.style.display = 'block';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        });
+
+        // Auto-scroll to top on load
+        window.scrollTo(0, 0);
+    </script>
+</body>
+</html>

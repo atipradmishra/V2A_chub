@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Results</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
+            min-height: 100vh;
+        }
+        
+        /* Fixed logo in upper left corner */
+        .fixed-logo {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1000;
+            height: 75px;
+            width: auto;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin-top: 20px; /* Add some top margin to account for fixed logo */
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 5px solid #667eea;
+        }
+        .section h2 {
+            color: #333;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        .transcript-section {
+            max-height: 300px;
+            overflow-y: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            font-family: 'Courier New', monospace;
+            line-height: 1.6;
+        }
+        .summary-section {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        .sentiment-section {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+        }
+        .emotion-section {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+        .keywords-section {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+        .sentiment-stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            flex: 1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stat-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        .sentiment-label {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.9em;
+        }
+        .sentiment-positive {
+            background: #d4edda;
+            color: #155724;
+        }
+        .sentiment-negative {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .sentiment-neutral {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        .wordcloud-section {
+            text-align: center;
+            background: white;
+            border-left-color: #6f42c1;
+        }
+        .wordcloud-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .qa-section {
+            margin-top: 40px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .question-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+        .question-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .ask-btn, .record-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        .ask-btn {
+            background: #17a2b8;
+            color: white;
+        }
+        .ask-btn:hover {
+            background: #138496;
+        }
+        .record-btn {
+            background: #dc3545;
+            color: white;
+        }
+        .record-btn:hover {
+            background: #c82333;
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.idle {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+        .status.recording {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status.processing {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.answer {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .answer-box {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .download-btn {
+            background: #28a745;
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            margin-right: 10px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .download-btn:hover {
+            background: #218838;
+            text-decoration: none;
+            color: white;
+        }
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            text-decoration: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            display: inline-block;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .back-btn:hover {
+            background: #5a6268;
+            text-decoration: none;
+            color: white;
+        }
+        .metadata {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Fixed Logo in upper left corner -->
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="logo" class="fixed-logo">
+    
+    <div class="container">
+        <h1>📊 Analysis Results</h1>
+        
+        <div class="metadata">
+            <strong>File:</strong> {{ filename or 'video.mp4' }} | 
+            <strong>Processed:</strong> <span id="timestamp"></span>
+        </div>
+
+        <div class="section">
+            <h2>📝 Transcript</h2>
+            <div class="transcript-section">
+                {{ transcript }}
+            </div>
+            <a href="data:text/plain;charset=utf-8,{{ transcript | urlencode }}" 
+               download="transcript.txt" class="download-btn">📄 Download Transcript</a>
+        </div>
+
+        <div class="section summary-section">
+            <h2>📌 AI Summary</h2>
+            <p>{{ summary }}</p>
+            <a href="data:text/plain;charset=utf-8,{{ summary | urlencode }}" 
+               download="summary.txt" class="download-btn">📄 Download Summary</a>
+        </div>
+
+        <div class="section sentiment-section">
+            <h2>💬 Sentiment Analysis</h2>
+            <div class="sentiment-stats">
+                <div class="stat-item">
+                    <div class="stat-value">{{ "%.2f"|format(polarity) }}</div>
+                    <div class="stat-label">Polarity</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{{ "%.2f"|format(subjectivity) }}</div>
+                    <div class="stat-label">Subjectivity</div>
+                </div>
+            </div>
+            <span class="sentiment-label sentiment-{{ sentiment.lower() }}">
+                {{ sentiment }}
+            </span>
+        </div>
+
+        <div class="section emotion-section">
+            <h2>🎭 Emotion Analysis</h2>
+            <p>{{ emotion }}</p>
+        </div>
+
+        <div class="section keywords-section">
+            <h2>🏷️ Key Topics & Keywords</h2>
+            <p>{{ keywords }}</p>
+        </div>
+
+        <div class="section wordcloud-section">
+            <h2>☁️ Word Cloud</h2>
+            <img src="{{ wordcloud_path }}" alt="Word Cloud" class="wordcloud-img">
+        </div>
+
+        <div class="qa-section">
+            <h2>🎤 Ask Questions About This Video</h2>
+            
+            <!-- Text Input Q&A -->
+            <div style="margin-bottom: 30px;">
+                <h3>💬 Type Your Question</h3>
+                <input type="text" id="textQuestion" class="question-input" 
+                       placeholder="Ask anything about this video...">
+                <button onclick="askTextQuestion()" class="ask-btn">Ask Question</button>
+            </div>
+
+            <!-- Voice Input Q&A -->
+            <div>
+                <h3>🎙️ Voice Questions</h3>
+                <button onclick="startRecording()" class="record-btn" id="recordBtn">
+                    🎤 Start Recording
+                </button>
+                <button onclick="stopRecording()" class="record-btn" id="stopBtn" style="display: none;">
+                    ⏹️ Stop Recording
+                </button>
+                <div id="status" class="status idle">Ready to record your question</div>
+                <div id="answerBox" class="answer-box" style="display: none;"></div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 40px;">
+            <a href="{{ url_for('home') }}" class="back-btn">🔙 Analyze Another Video</a>
+        </div>
+    </div>
+
+    <script>
+        // Set timestamp
+        document.getElementById('timestamp').textContent = new Date().toLocaleString();
+
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
+        async function startRecording() {
+            if (isRecording) return;
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                isRecording = true;
+
+                document.getElementById('recordBtn').style.display = 'none';
+                document.getElementById('stopBtn').style.display = 'inline-block';
+                document.getElementById('status').className = 'status recording';
+                document.getElementById('status').textContent = '🎙️ Recording... Click stop when done';
+
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = processRecording;
+                mediaRecorder.start();
+
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                updateStatus('error', '❌ Error accessing microphone');
+                resetRecordingUI();
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                isRecording = false;
+                resetRecordingUI();
+            }
+        }
+
+        function resetRecordingUI() {
+            document.getElementById('recordBtn').style.display = 'inline-block';
+            document.getElementById('stopBtn').style.display = 'none';
+        }
+
+        async function processRecording() {
+            updateStatus('processing', '🔄 Processing your question...');
+            
+            try {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const formData = new FormData();
+                formData.append('audio', audioBlob, 'voice.wav');
+
+                const response = await fetch('/ask-audio', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('Server error');
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    updateStatus('error', '❌ ' + data.error);
+                } else {
+                    updateStatus('answer', '🎯 Question: ' + (data.question || 'Voice question'));
+                    showAnswer(data.answer);
+                }
+
+            } catch (err) {
+                console.error('Error:', err);
+                updateStatus('error', '❌ Failed to process audio');
+            }
+        }
+
+        async function askTextQuestion() {
+            const question = document.getElementById('textQuestion').value.trim();
+            if (!question) return;
+
+            updateStatus('processing', '🔄 Processing your question...');
+
+            try {
+                const response = await fetch('/ask-text', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ question: question })
+                });
+
+                if (!response.ok) throw new Error('Server error');
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    updateStatus('error', '❌ ' + data.error);
+                } else {
+                    updateStatus('answer', '🎯 Question: ' + question);
+                    showAnswer(data.answer);
+                }
+
+            } catch (err) {
+                console.error('Error:', err);
+                updateStatus('error', '❌ Failed to process question');
+            }
+        }
+
+        function updateStatus(type, message) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status ' + type;
+            statusEl.textContent = message;
+        }
+
+        function showAnswer(answer) {
+            const answerBox = document.getElementById('answerBox');
+            answerBox.innerHTML = '<strong>🧠 Answer:</strong><br>' + answer;
+            answerBox.style.display = 'block';
+        }
+
+        // Allow Enter key to submit text questions
+        document.getElementById('textQuestion').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                askTextQuestion();
+            }
+        });
+    </script>
+</body>
+</html>

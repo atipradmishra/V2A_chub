@@ -1,0 +1,590 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Video Analyzer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
+            min-height: 100vh;
+            position: relative;
+        }
+        
+        /* Fixed logo in upper left corner */
+        .fixed-logo {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1000;
+            height: 75px;
+            width: auto;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            margin-top: 20px; /* Add some top margin to account for fixed logo */
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            margin-top: 20px; /* Add top margin to avoid overlap with fixed logo */
+        }
+        
+        .upload-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 2px dashed #ddd;
+            text-align: center;
+        }
+        .upload-section:hover {
+            border-color: #667eea;
+            background: #f0f2ff;
+        }
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            margin: 20px 0;
+        }
+        .file-input {
+            position: absolute;
+            opacity: 0;
+            width: 100%;
+            height: 100%;
+            cursor: pointer;
+        }
+        .file-input-button {
+            display: inline-block;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            border-radius: 25px;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        .file-input-button:hover {
+            background: #5a6fd8;
+        }
+        .submit-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background 0.3s;
+        }
+        .submit-btn:hover {
+            background: #218838;
+        }
+        .qa-section {
+            margin-top: 40px;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .qa-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .video-filter {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        .video-filter h3 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 18px;
+        }
+        .video-select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+            cursor: pointer;
+        }
+        .video-select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .question-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+        }
+        .question-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .ask-btn, .record-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        .ask-btn {
+            background: #17a2b8;
+            color: white;
+        }
+        .ask-btn:hover {
+            background: #138496;
+        }
+        .record-btn {
+            background: #dc3545;
+            color: white;
+        }
+        .record-btn:hover {
+            background: #c82333;
+        }
+        .record-btn.recording {
+            background: #ff6b6b;
+            animation: pulse 1s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.idle {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+        .status.recording {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status.processing {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.answer {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .history-section {
+            margin-top: 40px;
+            padding: 30px;
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+        }
+        .history-item {
+            padding: 15px;
+            margin-bottom: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .history-item h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .history-meta {
+            font-size: 12px;
+            color: #6c757d;
+        }
+        .clear-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            float: right;
+            margin-bottom: 15px;
+        }
+        .clear-btn:hover {
+            background: #c82333;
+        }
+        .answer-box {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- Fixed Logo in upper left corner - CORRECTED PATH -->
+    <img src="{{ url_for('static', filename='logo.png') }}" alt="logo" class="fixed-logo">
+    
+    <div class="container">
+        <h1>🎬 AI Media Analyzer</h1>
+        
+        <div class="upload-section">
+            <h2>Upload Media for Analysis</h2>
+            <form method="post" enctype="multipart/form-data" id="uploadForm">
+                <!-- Media Type Dropdown -->
+                <label for="mediaType" style="font-weight: bold; margin-right: 10px;">Select Media Type:</label>
+                <select name="media_type" id="mediaType" required style="padding: 8px; font-size: 16px; border-radius: 6px; border: 1px solid #ddd; margin-bottom: 15px;">
+                    <option value="" disabled selected>-- Choose media type --</option>
+                    <option value="Video">Video</option>
+                    <option value="Audio">Audio</option>
+                    <option value="Document">Document (PDF, Word, Excel)</option>
+                </select>
+                <br>
+
+                <div class="file-input-wrapper">
+                    <input type="file" name="media" id="mediaFile" required class="file-input" 
+                        accept="video/*,audio/*,application/pdf,application/msword,
+                                application/vnd.openxmlformats-officedocument.wordprocessingml.document,
+                                application/vnd.ms-excel,
+                                application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" >
+                    <label for="mediaFile" class="file-input-button">
+                        📁 Choose File
+                    </label>
+                </div>
+                <br>
+                <button type="submit" class="submit-btn">🚀 Upload and Analyze</button>
+            </form>
+            <p style="color: #6c757d; margin-top: 15px;">
+                <strong>Video formats:</strong> MP4, MOV, AVI, MKV, WMV, FLV, WebM<br>
+                <strong>Audio formats:</strong> MP3, WAV, FLAC, AAC, OGG, M4A, WMA<br>
+                <strong>Document formats:</strong> PDF, DOC, DOCX, XLS, XLSX
+            </p>
+        </div>
+
+        <div class="qa-section">
+            <h2>🎤 Ask Questions About Your Media</h2>
+            
+            <!-- Media Filter -->
+            <div class="media-filter">
+                <h3>🎯 Select Media to Query</h3>
+                <select id="mediaSelect" class="media-select">
+                    <option value="all">🔍 Search across all media files (AI will find most relevant)</option>
+                </select>
+            </div>
+            
+            <!-- Text Input Q&A -->
+            <div style="margin-bottom: 30px;">
+                <h3>💬 Type Your Question</h3>
+                <input type="text" id="textQuestion" class="question-input" 
+                       placeholder="Ask anything about your analyzed media files...">
+                <button onclick="askTextQuestion()" class="ask-btn">Ask Question</button>
+            </div>
+
+            <!-- Voice Input Q&A -->
+            <div>
+                <h3>🎙️ Voice Questions</h3>
+                <button onclick="startRecording()" class="record-btn" id="recordBtn">
+                    🎤 Start Recording
+                </button>
+                <button onclick="stopRecording()" class="record-btn" id="stopBtn" style="display: none;">
+                    ⏹️ Stop Recording
+                </button>
+                <div id="status" class="status idle">Ready to record your question</div>
+                <div id="answerBox" class="answer-box" style="display: none;"></div>
+            </div>
+        </div>
+
+        {% if recent_analysis %}
+        <div class="history-section">
+            <button onclick="clearAllData()" class="clear-btn">🗑️ Clear All Data</button>
+            <h2>📊 Recent Analysis</h2>
+            {% for item in recent_analysis %}
+            <div class="history-item">
+                <h4>{{ item.filename }}</h4>
+                <p><strong>Summary:</strong> {{ item.summary[:200] }}...</p>
+                <div class="history-meta">
+                    Sentiment: {{ item.sentiment_label }} | 
+                    Analyzed: {{ item.created_at }}
+                </div>
+            </div>
+            {% endfor %}
+            <p style="text-align: center; margin-top: 20px;">
+                <a href="/analysis-history" style="color: #667eea; text-decoration: none;">
+                    📋 View Complete History
+                </a>
+            </p>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+
+        // Load media list when page loads
+        window.addEventListener('load', loadMediaList);
+
+        async function loadMediaList() {
+            try {
+                const response = await fetch('/get-media-list');
+                const mediaFiles = await response.json();
+                
+                const select = document.getElementById('mediaSelect');
+                
+                // Clear existing options except the first one
+                while (select.children.length > 1) {
+                    select.removeChild(select.lastChild);
+                }
+                
+                // Add media options with appropriate icons
+                mediaFiles.forEach(media => {
+                    const option = document.createElement('option');
+                    option.value = media.filename;  // Use filename as value
+                    
+                    // Determine icon based on file type
+                    const extension = media.filename.split('.').pop().toLowerCase();
+                    const videoFormats = ['mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm'];
+                    const audioFormats = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma'];
+                    
+                    let icon = '📄'; // default
+                    if (videoFormats.includes(extension)) {
+                        icon = '📹';
+                    } else if (audioFormats.includes(extension)) {
+                        icon = '🎵';
+                    }
+                    
+                    option.textContent = `${icon} ${media.filename}`;
+                    select.appendChild(option);
+                });
+                
+                // Show/hide filter based on available media
+                const filterDiv = document.querySelector('.media-filter');
+                if (mediaFiles.length === 0) {
+                    filterDiv.style.display = 'none';
+                } else {
+                    filterDiv.style.display = 'block';
+                }
+                
+            } catch (err) {
+                console.error('Error loading media list:', err);
+                // Fallback to video list endpoint for backward compatibility
+                try {
+                    const response = await fetch('/get-video-list');
+                    const videos = await response.json();
+                    
+                    const select = document.getElementById('mediaSelect');
+                    
+                    // Clear existing options except the first one
+                    while (select.children.length > 1) {
+                        select.removeChild(select.lastChild);
+                    }
+                    
+                    // Add video options
+                    videos.forEach(video => {
+                        const option = document.createElement('option');
+                        option.value = video.filename;  // Use filename as value
+                        option.textContent = `📹 ${video.filename}`;
+                        select.appendChild(option);
+                    });
+                    
+                } catch (fallbackErr) {
+                    console.error('Error loading video list:', fallbackErr);
+                }
+            }
+        }
+
+        // Update file input display
+        document.getElementById('mediaFile').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const fileName = file.name;
+            const extension = fileName.split('.').pop().toLowerCase();
+            const videoFormats = ['mp4', 'avi', 'mov', 'mkv', 'wmv', 'flv', 'webm'];
+            const audioFormats = ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a', 'wma'];
+            
+            let icon = '📁';
+            if (videoFormats.includes(extension)) {
+                icon = '📹';
+            } else if (audioFormats.includes(extension)) {
+                icon = '🎵';
+            }
+            
+            const displayName = fileName.length > 30 ? 
+                fileName.substring(0, 30) + '...' : fileName;
+            
+            document.querySelector('.file-input-button').textContent = `${icon} ${displayName}`;
+        });
+
+        async function startRecording() {
+            if (isRecording) return;
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                isRecording = true;
+
+                document.getElementById('recordBtn').style.display = 'none';
+                document.getElementById('stopBtn').style.display = 'inline-block';
+                document.getElementById('status').className = 'status recording';
+                document.getElementById('status').textContent = '🎙️ Recording... Click stop when done';
+
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = processRecording;
+                mediaRecorder.start();
+
+            } catch (err) {
+                console.error('Error accessing microphone:', err);
+                updateStatus('error', '❌ Error accessing microphone');
+                resetRecordingUI();
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                isRecording = false;
+                resetRecordingUI();
+            }
+        }
+
+        function resetRecordingUI() {
+            document.getElementById('recordBtn').style.display = 'inline-block';
+            document.getElementById('stopBtn').style.display = 'none';
+            document.getElementById('recordBtn').classList.remove('recording');
+        }
+
+        async function processRecording() {
+            updateStatus('processing', '🔄 Processing your question...');
+            
+            try {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const formData = new FormData();
+                formData.append('audio', audioBlob, 'voice.wav');
+                
+                // Add selected media filename here
+                const selectedMedia = document.getElementById('mediaSelect').value;
+                formData.append('filename', selectedMedia);
+
+                const response = await fetch('/ask-audio', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('Server error');
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    updateStatus('error', '❌ ' + data.error);
+                } else {
+                    updateStatus('answer', '🎯 Question: ' + (data.question || 'Voice question'));
+                    showAnswer(data.answer);
+                }
+
+            } catch (err) {
+                console.error('Error:', err);
+                updateStatus('error', '❌ Failed to process audio');
+            }
+        }
+
+        async function askTextQuestion() {
+            const question = document.getElementById('textQuestion').value.trim();
+            if (!question) return;
+
+            updateStatus('processing', '🔄 Processing your question...');
+
+            try {
+                const selectedMedia = document.getElementById('mediaSelect').value;
+                
+                const response = await fetch('/ask-text', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        question: question,
+                        filename: selectedMedia  // pass filename here
+                    })
+                });
+
+                if (!response.ok) throw new Error('Server error');
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    updateStatus('error', '❌ ' + data.error);
+                } else {
+                    updateStatus('answer', '🎯 Question: ' + question);
+                    showAnswer(data.answer);
+                }
+
+            } catch (err) {
+                console.error('Error:', err);
+                updateStatus('error', '❌ Failed to process question');
+            }
+        }
+
+        function updateStatus(type, message) {
+            const statusEl = document.getElementById('status');
+            statusEl.className = 'status ' + type;
+            statusEl.textContent = message;
+        }
+
+        function showAnswer(answer) {
+            const answerBox = document.getElementById('answerBox');
+            answerBox.innerHTML = '<strong>🧠 Answer:</strong><br>' + answer;
+            answerBox.style.display = 'block';
+        }
+
+        async function clearAllData() {
+            if (!confirm('Are you sure you want to clear all stored media analysis data?')) return;
+
+            try {
+                const response = await fetch('/clear-data', { method: 'POST' });
+                const data = await response.json();
+                alert(data.message);
+                location.reload();
+            } catch (err) {
+                alert('Error clearing data');
+            }
+        }
+
+        // Allow Enter key to submit text questions
+        document.getElementById('textQuestion').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                askTextQuestion();
+            }
+        });
+    </script>
+</body>
