@@ -197,7 +197,6 @@ def home():
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"document{file_extension}")
 
         file.save(filepath)
-        command = f'ffmpeg -i "{filepath}" -y "{temp_audio_path}"'
 
         try:
             if is_document:
@@ -211,6 +210,8 @@ def home():
 
                 temp_audio_path = "temp_audio.wav"
                 compressed_audio_path = "compressed_audio.wav"
+
+                command = f'ffmpeg -i "{filepath}" -y "{temp_audio_path}"'
 
                 if is_video:
                     video_clip = VideoFileClip(filepath)
