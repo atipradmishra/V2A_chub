@@ -1,7 +1,9 @@
 import os
 import sqlite3
 import pickle
-from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify
+import platform
+import subprocess
+from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify, session, flash
 from moviepy.editor import VideoFileClip, AudioFileClip
 from textblob import TextBlob
 from wordcloud import WordCloud
@@ -13,26 +15,46 @@ import numpy as np
 import faiss
 import openai
 from datetime import datetime
-
+from functools import wraps
 import PyPDF2
 import docx
 import pandas as pd
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
+app.secret_key = 'your-secret-key-change-this-in-production'
 
-# Initialize OpenAI client
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "password123"
+
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
-# Load embedding model
 embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
 dimension = 384
 
-# Database setup
+def get_ffmpeg_executable():
+    if platform.system() == "Windows":
+        win_path = r"C:\\ffmpeg\\bin\\ffmpeg.exe"
+        if os.path.exists(win_path):
+            return win_path
+    elif platform.system() == "Linux":
+        if os.path.exists("/usr/bin/ffmpeg"):
+            return "/usr/bin/ffmpeg"
+        elif os.path.exists("/usr/local/bin/ffmpeg"):
+            return "/usr/local/bin/ffmpeg"
+    else:
+        return "ffmpeg"
+
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'logged_in' not in session or not session['logged_in']:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 def init_db():
     conn = sqlite3.connect('video_analysis.db')
     cursor = conn.cursor()
-    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS video_analysis (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -49,7 +71,6 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS faiss_index_meta (
             id INTEGER PRIMARY KEY,
@@ -57,73 +78,49 @@ def init_db():
             last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-    
     conn.commit()
     conn.close()
 
 def load_faiss_index():
-    """Load FAISS index and stored data from database"""
     conn = sqlite3.connect('video_analysis.db')
     cursor = conn.cursor()
-    
     cursor.execute('SELECT embedding, combined_text, summary FROM video_analysis ORDER BY id')
     rows = cursor.fetchall()
-    
     if not rows:
         return faiss.IndexFlatL2(dimension), []
-    
-    # Reconstruct FAISS index
     index = faiss.IndexFlatL2(dimension)
     stored_data = []
-    
     for row in rows:
         embedding_blob, combined_text, summary = row
         if embedding_blob:
-            # Deserialize embedding
             embedding = pickle.loads(embedding_blob)
             index.add(np.array([embedding]))
-            stored_data.append({
-                "text": combined_text,
-                "summary": summary
-            })
-    
+            stored_data.append({"text": combined_text, "summary": summary})
     conn.close()
     return index, stored_data
 
 def save_analysis_to_db(filename, transcript, summary, sentiment, emotion_analysis, keywords, combined_text, embedding):
-    """Save analysis results to database"""
     conn = sqlite3.connect('video_analysis.db')
     cursor = conn.cursor()
-    
-    # Serialize embedding for storage
-    embedding_blob = pickle.dumps(embedding[0])  # Store first embedding vector
-    
+    embedding_blob = pickle.dumps(embedding[0])
     cursor.execute('''
         INSERT INTO video_analysis 
         (filename, transcript, summary, sentiment_polarity, sentiment_subjectivity, 
          sentiment_label, emotion_analysis, keywords, combined_text, embedding)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
-        filename,
-        transcript,
-        summary,
+        filename, transcript, summary,
         sentiment.polarity if sentiment else None,
         sentiment.subjectivity if sentiment else None,
-        "Positive" if sentiment and sentiment.polarity > 0.1 else "Negative" if sentiment and sentiment.polarity < -0.1 else "Neutral" if sentiment else None,
-        emotion_analysis,
-        keywords,
-        combined_text,
-        embedding_blob
+        "Positive" if sentiment and sentiment.polarity > 0.1 else "Negative" if sentiment and sentiment.polarity < -0.1 else "Neutral",
+        emotion_analysis, keywords, combined_text, embedding_blob
     ))
-    
     conn.commit()
     conn.close()
 
 def get_all_analysis_data():
-    """Retrieve all analysis data for Q&A"""
     conn = sqlite3.connect('video_analysis.db')
     cursor = conn.cursor()
-    
     cursor.execute('''
         SELECT id, filename, transcript, summary, sentiment_polarity, 
                sentiment_subjectivity, sentiment_label, emotion_analysis, 
@@ -131,14 +128,9 @@ def get_all_analysis_data():
         FROM video_analysis 
         ORDER BY created_at DESC
     ''')
-    
     columns = [description[0] for description in cursor.description]
     rows = cursor.fetchall()
-    
-    result = []
-    for row in rows:
-        result.append(dict(zip(columns, row)))
-    
+    result = [dict(zip(columns, row)) for row in rows]
     conn.close()
     return result
 
@@ -157,19 +149,39 @@ def extract_text_from_document(filepath, extension):
             text += para.text + "\n"
     elif extension in ['.xls', '.xlsx']:
         df = pd.read_excel(filepath)
-        # Join all cell texts row-wise then concat rows
         text = df.astype(str).apply(lambda x: ' '.join(x), axis=1).str.cat(sep=' ')
     return text.strip()
 
-# Initialize database and load existing data
 init_db()
 index, stored_data = load_faiss_index()
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            session['logged_in'] = True
+            session['username'] = username
+            flash('Login successful!', 'success')
+            return redirect(url_for('home'))
+        else:
+            flash('Invalid username or password!', 'error')
+    return render_template("login.html")
+
+@app.route("/logout")
+def logout():
+    session.pop('logged_in', None)
+    session.pop('username', None)
+    flash('You have been logged out successfully!', 'info')
+    return redirect(url_for('login'))
+
 @app.route("/", methods=["GET", "POST"])
+@login_required
 def home():
     if request.method == "POST":
-        file = request.files.get("media")  # renamed to 'media'
-        selected_media_type = request.form.get("media_type")  # new dropdown value
+        file = request.files.get("media")
+        selected_media_type = request.form.get("media_type")
 
         if not file:
             return "No file uploaded.", 400
@@ -188,7 +200,6 @@ def home():
         is_audio = file_extension in audio_formats
         is_document = file_extension in document_formats
 
-        # Save file to uploads folder
         if is_video:
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"video{file_extension}")
         elif is_audio:
@@ -200,18 +211,13 @@ def home():
 
         try:
             if is_document:
-                # Extract text from document
                 transcript = extract_text_from_document(filepath, file_extension)
                 if not transcript.strip():
                     return "Failed to extract text from the document or document is empty.", 400
-
             else:
-                # Audio or video processing: extract or convert audio, transcribe with OpenAI Whisper
-
+                ffmpeg = get_ffmpeg_executable()
                 temp_audio_path = "temp_audio.wav"
                 compressed_audio_path = "compressed_audio.wav"
-
-                command = f'ffmpeg -i "{filepath}" -y "{temp_audio_path}"'
 
                 if is_video:
                     video_clip = VideoFileClip(filepath)
@@ -227,22 +233,14 @@ def home():
                             import shutil
                             shutil.copy2(filepath, temp_audio_path)
                         else:
-                            result = os.system(command)
-                            if result != 0:
-                                raise Exception(f"Failed to convert audio file: {filename}")
+                            result = subprocess.run([ffmpeg, '-i', filepath, '-y', temp_audio_path], capture_output=True)
+                            if result.returncode != 0:
+                                raise Exception(f"Failed to convert audio file: {filename}\n{result.stderr.decode()}")
 
-                # Compress audio with ffmpeg if possible
-                try:
-                    result = os.system(command)
-                    if result != 0 or not os.path.exists(compressed_audio_path):
-                        compressed_audio_path = temp_audio_path
-                except Exception:
+                result = subprocess.run([ffmpeg, '-i', temp_audio_path, '-ac', '1', '-ar', '16000', '-y', compressed_audio_path], capture_output=True)
+                if result.returncode != 0 or not os.path.exists(compressed_audio_path):
                     compressed_audio_path = temp_audio_path
 
-                if not os.path.exists(compressed_audio_path):
-                    raise FileNotFoundError(f"Audio file not found: {compressed_audio_path}")
-
-                # Transcribe using OpenAI Whisper API
                 with open(compressed_audio_path, "rb") as af:
                     transcript_response = client.audio.transcriptions.create(
                         model="whisper-1",
@@ -250,7 +248,6 @@ def home():
                     )
                 transcript = transcript_response.text
 
-            # Summarize transcript/text with GPT
             summary_response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[
@@ -260,13 +257,11 @@ def home():
             )
             summary = summary_response.choices[0].message.content
 
-            # Sentiment analysis (only if transcript available)
             sentiment = TextBlob(transcript).sentiment if transcript else None
             polarity = sentiment.polarity if sentiment else 0
             subjectivity = sentiment.subjectivity if sentiment else 0
             sentiment_label = "Positive" if polarity > 0.1 else "Negative" if polarity < -0.1 else "Neutral"
 
-            # Emotion detection with GPT
             emotion_response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[
@@ -276,7 +271,6 @@ def home():
             )
             emotion_analysis = emotion_response.choices[0].message.content
 
-            # Keyword extraction with GPT
             keywords_response = client.chat.completions.create(
                 model="gpt-4",
                 messages=[
@@ -286,7 +280,6 @@ def home():
             )
             keywords = keywords_response.choices[0].message.content
 
-            # Generate wordcloud image
             wordcloud = WordCloud(width=800, height=400, background_color='white').generate(transcript)
             wordcloud_path = os.path.join("static", "wordcloud.png")
             plt.figure(figsize=(10, 5))
@@ -295,42 +288,25 @@ def home():
             plt.savefig(wordcloud_path, bbox_inches='tight', dpi=300, facecolor='white')
             plt.close()
 
-            # Create combined text for embedding
             media_type = selected_media_type if selected_media_type else ("Video" if is_video else "Audio" if is_audio else "Document")
-            combined_text = f"""Transcript ({media_type}): {transcript}
+            combined_text = f"""Transcript ({media_type}): {transcript}\n\nSummary: {summary}\n\nSentiment Analysis: Polarity={polarity:.2f}, Subjectivity={subjectivity:.2f}, Label={sentiment_label}\n\nEmotion Analysis: {emotion_analysis}\n\nKeywords: {keywords}"""
 
-Summary: {summary}
-
-Sentiment Analysis: Polarity={polarity:.2f}, Subjectivity={subjectivity:.2f}, Label={sentiment_label}
-
-Emotion Analysis: {emotion_analysis}
-
-Keywords: {keywords}"""
-
-            # Generate embedding
             embedding_vector = embedding_model.encode([combined_text])
-            
-            # Add to FAISS index
             global index, stored_data
             index.add(np.array(embedding_vector))
-            stored_data.append({
-                "text": combined_text,
-                "summary": summary
-            })
+            stored_data.append({"text": combined_text, "summary": summary})
 
-            # Save to database
             save_analysis_to_db(
                 filename, transcript, summary, sentiment, 
                 emotion_analysis, keywords, combined_text, embedding_vector
             )
 
-            # Cleanup temporary files
             for temp_file in [filepath, "temp_audio.wav", "compressed_audio.wav"]:
                 if os.path.exists(temp_file):
                     try:
                         os.remove(temp_file)
                     except:
-                        pass  # Ignore cleanup errors
+                        pass
 
             return render_template("result.html", 
                                  transcript=transcript, 
@@ -345,7 +321,6 @@ Keywords: {keywords}"""
                                  media_type=media_type)
 
         except Exception as e:
-            # Cleanup on error
             for temp_file in ["temp_audio.wav", "compressed_audio.wav", filepath]:
                 if os.path.exists(temp_file):
                     try:
@@ -354,17 +329,17 @@ Keywords: {keywords}"""
                         pass
             return f"Error processing {selected_media_type or ('video' if is_video else 'audio' if is_audio else 'document')}: {str(e)}", 500
 
-    # Get recent analysis for display
     recent_analysis = get_all_analysis_data()
-    return render_template("index.html", recent_analysis=recent_analysis[:5]) 
-
+    return render_template("index.html", recent_analysis=recent_analysis[:5])
 
 @app.route("/download/<filename>")
+@login_required
 def download_file(filename):
     return send_file(os.path.join(app.config['UPLOAD_FOLDER'], filename), as_attachment=True)
 
 
 @app.route("/get-video-list")
+@login_required
 def get_video_list():
     """Get list of all analyzed videos for the filter dropdown"""
     conn = sqlite3.connect('video_analysis.db')
@@ -377,6 +352,7 @@ def get_video_list():
     return jsonify([{"id": video[0], "filename": video[1]} for video in videos])
 
 @app.route("/ask-audio", methods=["POST"])
+@login_required
 def ask_audio():
     audio_file = request.files.get("audio")
     selected_filename = request.form.get("filename")  # get filename from frontend form
@@ -442,7 +418,6 @@ def ask_audio():
 
         print("Sending chat messages to OpenAI GPT:", messages)
 
-
         chat_response = client.chat.completions.create(
             model="gpt-4",
             messages=messages
@@ -465,6 +440,7 @@ def ask_audio():
 
 
 @app.route("/ask-text", methods=["POST"])
+@login_required
 def ask_text():
     data = request.get_json()
     question = data.get("question", "").strip()
@@ -529,7 +505,6 @@ def ask_text():
 
         print("Sending chat messages to OpenAI GPT:", messages)
 
-
         chat_response = client.chat.completions.create(
             model="gpt-4",
             messages=messages
@@ -547,8 +522,8 @@ def ask_text():
         return jsonify({"error": f"Error processing question: {str(e)}"}), 500
 
 
-
 @app.route("/analysis-history")
+@login_required
 def analysis_history():
     """View all stored video analysis"""
     all_analysis = get_all_analysis_data()
@@ -556,6 +531,7 @@ def analysis_history():
 
 
 @app.route("/clear-data", methods=["POST"])
+@login_required
 def clear_data():
     """Clear all stored data and reset FAISS index"""
     global index, stored_data
@@ -578,8 +554,10 @@ if __name__ == "__main__":
     # Create required directories
     os.makedirs("uploads", exist_ok=True)
     os.makedirs("static", exist_ok=True)
+    os.makedirs("templates", exist_ok=True)
     
     print("🚀 Starting Flask Video Analyzer...")
     print(f"📊 Loaded {len(stored_data)} existing analysis records")
+    print(f"🔐 Login credentials: Username: {ADMIN_USERNAME}, Password: {ADMIN_PASSWORD}")
     
     app.run(host="0.0.0.0", port=5000)
