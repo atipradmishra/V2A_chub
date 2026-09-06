@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Environment
+.env
+.env.local
+
+# Databases (never commit application data)
+*.db
+*.sqlite
+*.sqlite3
+
+# Media and uploads
+uploads/
+temp_uploads/
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.wav
+*.mp3
+
+# Generated artefacts
+static/wordcloud.png
+*.log
+
+# Internal documents
+*.docx
+*.pdf
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
